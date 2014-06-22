@@ -22,11 +22,14 @@ The provided training dataset consist of 159 predictor variables and the outcome
 
 ------
 
+## Libraries loaded for analysis  
 
-```{r}
+```{r libraryLoad,results='hide'}
 library(ggplot2)
-library(caret)
+library(caret,quietly=T)
+library(randomForest,quietly=T)
 library(corrplot)
+library(xtable)
 ```
 
 
@@ -49,11 +52,18 @@ trainRaw.df <- trainRaw.df[,-c(1,cols_off)]
 
 ### Correlation patterns among predictors, using the "corrplot" package:
 
+Although not critical for the final model analysis, correlation patterns among predictors are 
+explored graphically via the corrplot package, as shown in Fig.1 below:  
 
-```{r corrplot}
+
+```{r corrplot,fig.height=8,fig.width=8}
 #-- Check correlation patterns in features --
-corrplot(corr=cor(trainRaw.df[,2:53]),method="circle",diag=F,type="lower",tl.cex=0.6)
+corrplot(corr=cor(trainRaw.df[,2:53]),method="circle",diag=F,type="lower",tl.cex=0.8)
 ```
+  
+__Fig.1: Correlation patterns among predictors__    
+
+
 
 ## Training and Cross-validation Set selection  
 
@@ -95,20 +105,12 @@ save(model.rf,file="model.rf.rda")
 load("model.rf.rda")
 ```
 
-### In sample error of random forest
-
-The confusion matrix for the in-sample error for each class is shown below.
-
-
-```{r confusionMatrix}
-model.rf$finalModel$confusion
-```
-
+## Explaining power of predictors  
 
 To explore the explaining power of the involved predictors for the random forest model, the predictor importance was plotted.
 
 
-```{r varImportance}
+```{r varImportance,fig.height=8,fig.width=7}
 #-- Plot variable importance -----
 randomForestImp.df <- data.frame(VarNames=row.names(model.rf$final$importance),
                                  varImp=model.rf$final$importance[,1])
@@ -119,30 +121,42 @@ ggplot(randomForestImp.df,aes(x=varImp , y=reorder(VarNames,varImp))) +
   ggtitle("Predictor importance for random forest model") + 
   xlab("Mean Decrease Gini") + ylab("Predictors")
 ```
+  
+__Fig.2: Predictor Importance for random forest model__  
+  
+  
+
+### In sample error of random forest
+
+The confusion matrix for the in-sample error for each class is shown below.
+
+
+```{r confusionMatrix,results='asis'}
+xt <- xtable(model.rf$finalModel$confusion,digits=c(0,0,0,0,0,0,-2))
+print(xt, type="html")
+```  
+
+__Table 1: In sample error table for all outcome classes__
+
 
 ### Expected out of sample error
 
-To estimate the out of sample error  the values of the "classe" variable were predicted for the test dataset (30% portion of original training set). The model provided an estimated out of sample error of **0.32%**
+To estimate the out of sample error  the values of the "classe" variable were predicted for the test dataset (30% portion of original training set).   
+The model provided an estimated out of sample error of **0.32%**
 
 
-```{r}
-# Compute out of sample  accuracy(error) 
+```{r outofSampleError}
 oos.pred <- predict(object=model.rf,newdata=crossValidSet)
-```
-
-
-```{r}
 model.rf_OOS_error <- sum(crossValidSet$classe != oos.pred)/nrow(crossValidSet)
-cat("Out of sample error for random forest: ",model.rf_OOS_error*100,"%")
 ```
-
+__Expected Out of sample error for random forest model: `r  model.rf_OOS_error*100`%__
 
 ## Actual test error performance
 
 The actual test error for the random forest model was computed for the test set consisting of 20 (rows) experiments, where the outcome variable ("classe") was not provided.
 
 
-```{r}
+```{r actualTestError,eval=FALSE}
 testRaw.df <- read.csv(file="pml-testing.csv",header=T,sep=",",na.strings=c("NA",""))
 
 #-- Remove irrelevant cols ---
@@ -179,6 +193,5 @@ pml_write_files(answers)
 The problem of predicting the quality of the execution of physical exercise was considered. 
 For all models trained, the k-fold cross validation method was used for error estimation.  The in sample and out of sample errors were computed.
 The mode of choice was the random forest model, as this exhibited the best performance among the models examined. 
-
 
 
